@@ -27,8 +27,20 @@ class BiblioScope:
             'Accept': 'application/json'
         }
     
-    def search_scopus(self, query: str, count: int = 10) -> Dict:
-        """Search Scopus database"""
+    def search_scopus(self, query: str, count: int = 10, search_type: str = "general") -> Dict:
+        """Search Scopus database with different search types"""
+        # Format query based on search type
+        if search_type == "doi":
+            # Clean DOI format
+            query = query.replace('https://doi.org/', '').replace('http://dx.doi.org/', '')
+            query = query.replace('doi:', '').strip()
+            query = f'DOI({query})'
+        elif search_type == "title":
+            query = f'TITLE({query})'
+        elif search_type == "author":
+            query = f'AUTHOR-NAME({query})'
+        # general search uses query as-is
+        
         params = {
             'query': query,
             'count': min(count, 200)
@@ -152,14 +164,32 @@ def main():
 Examples:
   biblioscope.py "machine learning"
   biblioscope.py "artificial intelligence" --count 20
+  biblioscope.py "10.1016/j.example.2023.123456" --doi
+  biblioscope.py "deep learning applications" --title
+  biblioscope.py "Smith, J." --author
         """
     )
     
     parser.add_argument('query', help='Search query')
     parser.add_argument('--count', '-c', type=int, default=10, 
                        help='Number of results to return (default: 10, max: 200)')
+    parser.add_argument('--doi', action='store_true',
+                       help='Search by DOI')
+    parser.add_argument('--title', action='store_true',
+                       help='Search in titles only')
+    parser.add_argument('--author', action='store_true',
+                       help='Search by author name')
     
     args = parser.parse_args()
+    
+    # Determine search type
+    search_type = "general"
+    if args.doi:
+        search_type = "doi"
+    elif args.title:
+        search_type = "title"
+    elif args.author:
+        search_type = "author"
     
     # Load API key
     api_key = load_api_key()
@@ -168,10 +198,11 @@ Examples:
     biblio = BiblioScope(api_key)
     
     print(f"🔍 Searching for: {args.query}")
+    print(f"📊 Search type: {search_type}")
     print(f"📊 Requesting {args.count} results...")
     
     # Search Scopus
-    results = biblio.search_scopus(args.query, args.count)
+    results = biblio.search_scopus(args.query, args.count, search_type)
     biblio.format_scopus_results(results)
 
 if __name__ == "__main__":
